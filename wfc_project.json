@@ -1,0 +1,16 @@
+{
+    "global_constraints": [
+        {
+            "id": "C",
+            "limit": 10
+        },
+        {
+            "id": "H",
+            "limit": 12
+        }
+    ],
+    "grid_height": 20,
+    "grid_width": 20,
+    "module_source": "wfc_modules.json",
+    "seed": 72564
+}

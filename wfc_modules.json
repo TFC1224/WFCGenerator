@@ -1,0 +1,66 @@
+{
+  "tile_size": 32,
+  "tileset_path": "assets/city_tileset.png",
+  "modules": [
+    {
+      "id": "R",
+      "name": "Road",
+      "weight": 1.5,
+      "tile_index": [0, 0],
+      "adjacency": {
+        "TOP":    ["R", "H", "C", "P", "E"],
+        "BOTTOM": ["R", "H", "C", "P", "E"],
+        "LEFT":   ["R", "H", "C", "P", "E"],
+        "RIGHT":  ["R", "H", "C", "P", "E"]
+      }
+    },
+    {
+      "id": "H",
+      "name": "Housing",
+      "weight": 1.0,
+      "tile_index": [0, 1],
+      "adjacency": {
+        "TOP":    ["R", "H", "P", "E"],
+        "BOTTOM": ["R", "H", "P", "E"],
+        "LEFT":   ["R", "H", "P", "E"],
+        "RIGHT":  ["R", "H", "P", "E"]
+      }
+    },
+    {
+      "id": "C",
+      "name": "Commercial",
+      "weight": 0.7,
+      "tile_index": [0, 2],
+      "adjacency": {
+        "TOP":    ["R", "C", "H", "E"],
+        "BOTTOM": ["R", "C", "H", "E"],
+        "LEFT":   ["R", "C", "H", "E"],
+        "RIGHT":  ["R", "C", "H", "E"]
+      }
+    },
+    {
+      "id": "P",
+      "name": "Park",
+      "weight": 1.2,
+      "tile_index": [0, 3],
+      "adjacency": {
+        "TOP":    ["R", "H", "C", "P", "E"],
+        "BOTTOM": ["R", "H", "C", "P", "E"],
+        "LEFT":   ["R", "H", "C", "P", "E"],
+        "RIGHT":  ["R", "H", "C", "P", "E"]
+      }
+    },
+    {
+      "id": "E",
+      "name": "Empty Lot",
+      "weight": 1.8,
+      "tile_index": [0, 4],
+      "adjacency": {
+        "TOP":    ["R", "H", "C", "P", "E"],
+        "BOTTOM": ["R", "H", "C", "P", "E"],
+        "LEFT":   ["R", "H", "C", "P", "E"],
+        "RIGHT":  ["R", "H", "C", "P", "E"]
+      }
+    }
+  ]
+}
