@@ -192,7 +192,15 @@ int main()
             generateAndUpdateMap(dataManager, tileMap, statusMessage);
         }
 
-        ImGui::SameLine();
+        ImGui::SameLine(); //同一行
+        if (ImGui::Button("重置视图 (Reset View)"))
+        {
+            // 将视图的尺寸设置为窗口大小
+            view.setSize(sf::Vector2f(window.getSize()));
+            // 将视图的中心设置回窗口中心
+            view.setCenter(sf::Vector2f(window.getSize()) / 2.f);
+        }
+
 
         if (ImGui::Button("保存设置 (Save Settings)", ImVec2(160, 0)))
         {
@@ -204,7 +212,7 @@ int main()
                 statusMessage = "保存失败！ (Save Failed!)";
             }
         }
-
+        ImGui::SameLine(); //同一行
         if (ImGui::Button("导出为图片 (Export as Image)", ImVec2(160, 0)))
         {
             // 计算地图的总像素尺寸
