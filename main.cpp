@@ -205,6 +205,32 @@ int main()
             }
         }
 
+        if (ImGui::Button("导出为图片 (Export as Image)", ImVec2(160, 0)))
+        {
+            // 计算地图的总像素尺寸
+            unsigned int mapPixelWidth = dataManager.gridWidth * dataManager.tileSize;
+            unsigned int mapPixelHeight = dataManager.gridHeight * dataManager.tileSize;
+
+            // 创建一个渲染纹理
+            sf::RenderTexture renderTexture;
+            if (renderTexture.create(mapPixelWidth, mapPixelHeight))
+            {
+                renderTexture.clear(sf::Color(50, 50, 50)); // 设置背景色
+                renderTexture.draw(tileMap); // 将tileMap绘制到纹理上
+                renderTexture.display();
+
+                // 从纹理中获取图片并保存到文件
+                if (renderTexture.getTexture().copyToImage().saveToFile("./output/generated_map.png"))
+                {
+                    statusMessage = "地图已导出！(Map Exported!)";
+                }
+                else
+                {
+                    statusMessage = "导出失败！(Export Failed!)";
+                }
+            }
+        }
+
         ImGui::Separator();
 
         // -- 状态显示 --

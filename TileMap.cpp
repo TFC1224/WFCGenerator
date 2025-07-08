@@ -11,7 +11,7 @@ bool TileMap::load(const std::string& tilesetPath, sf::Vector2u tileSize, const 
     size_t height = gridData.size();
 
     // 2. 准备顶点数组
-    // 我们使用Quads（四边形）类型，每个瓦片需要4个顶点
+    // 使用Quads（四边形）类型，每个瓦片需要4个顶点
     m_vertices.setPrimitiveType(sf::Quads);
     m_vertices.resize(width * height * 4);
 
