@@ -2,6 +2,7 @@
 #include <iostream>
 #include <filesystem>
 #include <random>
+#include <memory>
 #include <string> 
 
 // 包含ImGui和其SFML绑定库的头文件
@@ -20,34 +21,34 @@
  * @param tileMap 瓦片地图对象，用于加载和显示生成的地图
  * @param status 用于反馈生成状态的字符串引用
  */
-void generateAndUpdateMap(DataManager& dataManager, TileMap& tileMap, std::string& status, std::map<std::string, int>& counts)
+void generateAndUpdateMap(std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager, TileMap& tileMap, std::string& status, std::map<std::string, int>& counts)
 {
     // 更新状态信息，通知用户正在生成
     status = "生成中... (Generating...)";
     std::cout << "Generating new map..." << std::endl;
 
     // 1. 创建 WFC 生成器实例，传入网格尺寸和模块定义
-    WFCGenerator generator(dataManager.gridWidth, dataManager.gridHeight, dataManager.modules);
+    generator.reset(new WFCGenerator(dataManager.gridWidth, dataManager.gridHeight, dataManager.modules));
 
     // 2. 设置随机种子
-    generator.setSeed(dataManager.seed);
+    generator->setSeed(dataManager.seed);
 
     // 3. 设置全局模块数量限制
     for (const auto& limit_pair : dataManager.globalLimits) {
-        generator.setGlobalModuleLimit(limit_pair.first, limit_pair.second);
+        generator->setGlobalModuleLimit(limit_pair.first, limit_pair.second);
     }
 
     // 4. 运行 WFC 生成算法
-    if (generator.generate()) {
+    if (generator->generate()) {
         // 如果生成成功
         status = "生成成功！ (Success!)";
         std::cout << "Generation successful!" << std::endl;
-        counts = generator.getGlobalModuleCounts(); // 保存计数值
+        counts = generator->getGlobalModuleCounts(); // 保存计数值
         // 使用生成的网格数据加载并更新 TileMap
         tileMap.load(
             dataManager.tilesetPath, // 瓦片集的路径
             sf::Vector2u(dataManager.tileSize, dataManager.tileSize), // 单个瓦片的尺寸
-            generator.getGrid() // 生成的网格数据
+            generator->getGrid() // 生成的网格数据
         );
     }
     else {
@@ -96,6 +97,7 @@ int main()
     sf::Clock deltaClock; // 用于计算 ImGui 更新所需的时间差
     std::string statusMessage = "准备就绪 (Ready)"; // 用于在 UI 中显示状态信息
     std::map<std::string, int> lastGeneratedCounts; //存储上一次成功生成的模块数量
+	std::unique_ptr<WFCGenerator> generator;        // 用于存储 WFC 生成器实例
 
     // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
@@ -132,6 +134,42 @@ int main()
 
         // 更新 ImGui，传入自上一帧以来的时间
         ImGui::SFML::Update(window, deltaClock.restart());
+
+        // --- 新增：地块侦测逻辑 ---
+        // 检查条件：1. generator必须存在 (已经成功生成过至少一次)
+        //          2. 鼠标没有悬浮在任何ImGui窗口上，以防干扰UI
+        if (generator && !ImGui::GetIO().WantCaptureMouse)
+        {
+            // 1. 获取鼠标相对于窗口的像素坐标
+            sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
+
+            // 2. 将像素坐标转换为考虑了视图(view)平移和缩放的世界坐标
+            sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos, view);
+
+            // 3. 将世界坐标转换为网格坐标
+            sf::Vector2i gridPos(
+                static_cast<int>(worldPos.x / dataManager.tileSize),
+                static_cast<int>(worldPos.y / dataManager.tileSize)
+            );
+
+            // 4. 检查网格坐标是否在有效范围内
+            if (gridPos.x >= 0 && gridPos.x < dataManager.gridWidth &&
+                gridPos.y >= 0 && gridPos.y < dataManager.gridHeight)
+            {
+                // 5. 获取网格数据并找到对应的单元格
+                const auto& grid = generator->getGrid();
+                Cell* cell = grid[gridPos.y][gridPos.x];
+
+                if (cell && cell->isCollapsed)
+                {
+                    // 6. 使用ImGui的Tooltip功能显示信息
+                    ImGui::BeginTooltip();
+                    ImGui::Text("坐标 (Coords): (%d, %d)", gridPos.x, gridPos.y);
+                    ImGui::Text("模块ID (Module ID): %s", cell->chosenModuleId.c_str());
+                    ImGui::EndTooltip();
+                }
+            }
+        }
 
         // --- UI 面板构建 ---
         ImGui::Begin("控制面板"); // 开始一个新的 ImGui 窗口
@@ -192,7 +230,7 @@ int main()
         if (ImGui::Button("生成新地图 (Generate New Map)", ImVec2(160, 0)))
         {
             // 点击按钮时，调用地图生成函数
-            generateAndUpdateMap(dataManager, tileMap, statusMessage, lastGeneratedCounts);
+            generateAndUpdateMap(generator, dataManager, tileMap, statusMessage, lastGeneratedCounts);
         }
 
         ImGui::SameLine(); //同一行
