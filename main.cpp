@@ -99,6 +99,9 @@ int main()
     std::map<std::string, int> lastGeneratedCounts; //存储上一次成功生成的模块数量
 	std::unique_ptr<WFCGenerator> generator;        // 用于存储 WFC 生成器实例
 
+    // 新增: 用于控制种子锁定的布尔变量
+    bool seedLocked = false;
+
     // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
     {
@@ -187,6 +190,13 @@ int main()
         // -- 随机种子 --
         if (ImGui::CollapsingHeader("随机种子 (Seed)", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            // "锁定" 复选框
+            ImGui::Checkbox("锁定 (Lock)", &seedLocked);
+            ImGui::SameLine(); 
+
+            // 如果 seedLocked 为 true，则其后的所有控件都将变为灰色不可用
+            ImGui::BeginDisabled(seedLocked);
+
             ImGui::SetNextItemWidth(100);
             ImGui::InputInt("##Seed", &dataManager.seed); // "##" 使标签不可见，但ID唯一
             ImGui::SameLine();
@@ -197,6 +207,8 @@ int main()
                 std::uniform_int_distribution<int> uni(0, 100000);
                 dataManager.seed = uni(rng);
             }
+
+            ImGui::EndDisabled();
         }
 
         // -- 全局约束 --
