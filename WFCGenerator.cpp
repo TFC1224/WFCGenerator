@@ -69,6 +69,11 @@ const std::vector<std::vector<Cell*>>& WFCGenerator::getGrid() const {
     return grid;
 }
 
+//  获取当前网格中各模块的计数映射。
+const std::map<std::string, int>& WFCGenerator::getGlobalModuleCounts() const {
+    return globalModuleCounts;
+}
+
 /**
  * @brief 在控制台打印当前网格的状态（用于调试）。
  * 已坍缩的单元格显示其模块ID，未坍缩的显示 '?'。

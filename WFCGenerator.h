@@ -194,6 +194,8 @@ public:
      */
     const std::vector<std::vector<Cell*>>& getGrid() const;
 
+    const std::map<std::string, int>& getGlobalModuleCounts() const;
+
     /**
      * @brief 在控制台打印生成的网格（用于调试）。
      */

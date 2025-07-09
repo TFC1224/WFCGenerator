@@ -20,7 +20,7 @@
  * @param tileMap 瓦片地图对象，用于加载和显示生成的地图
  * @param status 用于反馈生成状态的字符串引用
  */
-void generateAndUpdateMap(DataManager& dataManager, TileMap& tileMap, std::string& status)
+void generateAndUpdateMap(DataManager& dataManager, TileMap& tileMap, std::string& status, std::map<std::string, int>& counts)
 {
     // 更新状态信息，通知用户正在生成
     status = "生成中... (Generating...)";
@@ -42,6 +42,7 @@ void generateAndUpdateMap(DataManager& dataManager, TileMap& tileMap, std::strin
         // 如果生成成功
         status = "生成成功！ (Success!)";
         std::cout << "Generation successful!" << std::endl;
+        counts = generator.getGlobalModuleCounts(); // 保存计数值
         // 使用生成的网格数据加载并更新 TileMap
         tileMap.load(
             dataManager.tilesetPath, // 瓦片集的路径
@@ -51,6 +52,7 @@ void generateAndUpdateMap(DataManager& dataManager, TileMap& tileMap, std::strin
     }
     else {
         // 如果生成失败
+        counts.clear(); // 生成失败则清空
         status = "生成失败！ (Failed!)";
         std::cout << "Generation failed." << std::endl;
     }
@@ -93,6 +95,7 @@ int main()
     sf::View view(sf::FloatRect(0, 0, (float)window.getSize().x, (float)window.getSize().y)); // 用于控制地图的视口（平移和缩放）
     sf::Clock deltaClock; // 用于计算 ImGui 更新所需的时间差
     std::string statusMessage = "准备就绪 (Ready)"; // 用于在 UI 中显示状态信息
+    std::map<std::string, int> lastGeneratedCounts; //存储上一次成功生成的模块数量
 
     // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
@@ -189,7 +192,7 @@ int main()
         if (ImGui::Button("生成新地图 (Generate New Map)", ImVec2(160, 0)))
         {
             // 点击按钮时，调用地图生成函数
-            generateAndUpdateMap(dataManager, tileMap, statusMessage);
+            generateAndUpdateMap(dataManager, tileMap, statusMessage, lastGeneratedCounts);
         }
 
         ImGui::SameLine(); //同一行
@@ -241,8 +244,38 @@ int main()
 
         ImGui::Separator();
 
+        // -- 生成统计 --
+        if (ImGui::CollapsingHeader("生成统计 (Generation Stats)"))
+        {
+            if (lastGeneratedCounts.empty())
+            {
+                ImGui::Text("暂无数据 (No data yet)");
+            }
+            else
+            {
+                if (ImGui::BeginTable("stats_table", 2, ImGuiTableFlags_Borders))
+                {
+                    ImGui::TableSetupColumn("模块 (Module)");
+                    ImGui::TableSetupColumn("数量 (Count)");
+                    ImGui::TableHeadersRow();
+                    for (const auto& pair : lastGeneratedCounts)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("%s", pair.first.c_str());
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%d", pair.second);
+                    }
+                    ImGui::EndTable();
+                }
+            }
+        }
+
         // -- 状态显示 --
         ImGui::Text("状态: %s", statusMessage.c_str());
+
+
+
 
         ImGui::End(); // 结束 ImGui 窗口
 
