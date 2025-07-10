@@ -6,23 +6,15 @@
 #include <memory>
 #include <string> 
 
-// 包含ImGui和其SFML绑定库的头文件
 #include "libs/imgui/imgui.h"
 #define IMGUI_SFML_API
 #include "libs/imgui/imgui-sfml.h"
 
-// 包含项目自定义的头文件
-#include "DataManager.h"    // 负责加载和保存项目数据
-#include "WFCGenerator.h"   // WFC 算法核心生成器
-#include "TileMap.h"        // 用于在 SFML 中渲染瓦片地图
+#include "DataManager.h"    
+#include "WFCGenerator.h"   
+#include "TileMap.h"       
 
-/**
- * @brief 生成地图并更新TileMap对象
- * @param dataManager 数据管理器，提供生成所需的配置
- * @param tileMap 瓦片地图对象，用于加载和显示生成的地图
- * @param status 用于反馈生成状态的字符串引用
- */
-void generateAndUpdateMap(
+bool generateAndUpdateMap(
     std::unique_ptr<WFCGenerator>& generator,
     DataManager& dataManager,
     TileMap& tileMap,
@@ -31,51 +23,43 @@ void generateAndUpdateMap(
     bool forbidCEdge 
 )
 {
-    // 更新状态信息，通知用户正在生成
     status = "生成中... (Generating...)";
     std::cout << "Generating new map..." << std::endl;
 
-    // 创建 WFC 生成器实例，传入网格尺寸和模块定义
     generator.reset(new WFCGenerator(dataManager.gridWidth, dataManager.gridHeight, dataManager.modules));
 
-    // 设置随机种子
     generator->setSeed(dataManager.seed);
 
-    // --- 应用边缘约束 ---
     if (forbidCEdge) {
         for (int y = 0; y < dataManager.gridHeight; ++y) {
             for (int x = 0; x < dataManager.gridWidth; ++x) {
-                // 如果单元格在边界上
                 if (x == 0 || x == dataManager.gridWidth - 1 || y == 0 || y == dataManager.gridHeight - 1) {
-                    generator->removePossibility(x, y, "C"); // 移除'C'的可能性
+                    generator->removePossibility(x, y, "C"); 
                 }
             }
         }
     }
 
-    // 设置全局模块数量限制
     for (const auto& limit_pair : dataManager.globalLimits) {
         generator->setGlobalModuleLimit(limit_pair.first, limit_pair.second);
     }
 
-    // 运行 WFC 生成算法
     if (generator->generate()) {
-        // 如果生成成功
         status = "生成成功！ (Success!)";
         std::cout << "Generation successful!" << std::endl;
-        counts = generator->getGlobalModuleCounts(); // 保存计数值
-        // 使用生成的网格数据加载并更新 TileMap
+        counts = generator->getGlobalModuleCounts(); 
         tileMap.load(
-            dataManager.tilesetPath, // 瓦片集的路径
-            sf::Vector2u(dataManager.tileSize, dataManager.tileSize), // 单个瓦片的尺寸
-            generator->getGrid() // 生成的网格数据
+            dataManager.tilesetPath, 
+            sf::Vector2u(dataManager.tileSize, dataManager.tileSize), 
+            generator->getGrid() 
         );
+        return true;
     }
     else {
-        // 如果生成失败
-        counts.clear(); // 生成失败则清空
+        counts.clear(); 
         status = "生成失败！ (Failed!)";
         std::cout << "Generation failed." << std::endl;
+        return false;
     }
 }
 
@@ -83,9 +67,9 @@ bool validateParkRule(const std::unique_ptr<WFCGenerator>& generator, DataManage
     const auto& grid = generator->getGrid();
     for (int y = 0; y < dataManager.gridHeight; ++y) {
         for (int x = 0; x < dataManager.gridWidth; ++x) {
-            if (grid[y][x]->chosenModuleId == "P") { // 找到了一个公园
+            if (grid[y][x]->chosenModuleId == "P") { 
                 bool hasRoadNeighbor = false;
-                // 检查四个方向的邻居
+
                 int dx[] = { 0, 0, -1, 1 };
                 int dy[] = { -1, 1, 0, 0 };
                 for (int i = 0; i < 4; ++i) {
@@ -94,17 +78,17 @@ bool validateParkRule(const std::unique_ptr<WFCGenerator>& generator, DataManage
                     if (nx >= 0 && nx < dataManager.gridWidth && ny >= 0 && ny < dataManager.gridHeight) {
                         if (grid[ny][nx]->chosenModuleId == "R") {
                             hasRoadNeighbor = true;
-                            break; // 只要有一个邻居是路就满足条件
+                            break; 
                         }
                     }
                 }
                 if (!hasRoadNeighbor) {
-                    return false; // 验证失败：这个公园没有道路邻居
+                    return false; 
                 }
             }
         }
     }
-    return true; // 所有公园都满足条件，验证通过
+    return true; 
 }
 
 bool validateCommercialClustering(const std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager) {
@@ -161,38 +145,62 @@ bool validateHousingAccessibility(const std::unique_ptr<WFCGenerator>& generator
     return true; 
 }
 
+void fitViewToMap(sf::View& view, const sf::RenderWindow& window, const DataManager& dataManager)
+{
+    const float panelWidth = 350.f; 
+    float mapWidthPx = static_cast<float>(dataManager.gridWidth * dataManager.tileSize);
+    float mapHeightPx = static_cast<float>(dataManager.gridHeight * dataManager.tileSize);
+    if (mapWidthPx == 0 || mapHeightPx == 0) return; 
+
+    float viewAreaWidth = static_cast<float>(window.getSize().x) - panelWidth;
+    float viewAreaHeight = static_cast<float>(window.getSize().y);
+    if (viewAreaWidth <= 0 || viewAreaHeight <= 0) return;
+
+    float mapAspectRatio = mapWidthPx / mapHeightPx;
+    float viewAreaAspectRatio = viewAreaWidth / viewAreaHeight;
+
+    sf::Vector2f viewSize;
+    if (mapAspectRatio > viewAreaAspectRatio) {
+        viewSize = { mapWidthPx, mapWidthPx / viewAreaAspectRatio };
+    }
+    else {
+        viewSize = { mapHeightPx * viewAreaAspectRatio, mapHeightPx };
+    }
+    view.setSize(viewSize);
+
+    view.zoom(1.1f);
+
+    view.setCenter(mapWidthPx / 2.f, mapHeightPx / 2.f);
+
+    float windowWidth = static_cast<float>(window.getSize().x);
+    float viewportWidthRatio = viewAreaWidth / windowWidth;
+    view.setViewport(sf::FloatRect(0.f, 0.f, viewportWidthRatio, 1.f));
+}
+
 int main()
 {
-    // 创建一个 1200x800 的窗口，标题为 "Modern WFC Generator"
-    sf::RenderWindow window(sf::VideoMode(1200, 800), "Modern WFC Generator");
-    // 将帧率限制在 60 FPS
+    sf::RenderWindow window(sf::VideoMode(1200, 800), "WFC Generator");
+
     window.setFramerateLimit(60);
 
-    // 初始化 ImGui-SFML 绑定库，false 表示不加载默认字体
     ImGui::SFML::Init(window, false);
 
-    // 检查并加载中文字体文件，以便 ImGui 支持中文显示
     const char* font_path = "assets/msyh.ttc";
     if (std::filesystem::exists(font_path)) {
         ImGuiIO& io = ImGui::GetIO();
-        // 从文件加载字体，并指定字体大小和所需的中文字形范围
         io.Fonts->AddFontFromFileTTF(font_path, 16.0f, nullptr, io.Fonts->GetGlyphRangesChineseFull());
-        // 更新字体纹理，让 ImGui 可以使用新加载的字体
         ImGui::SFML::UpdateFontTexture();
     }
     else {
         std::cout << "Font not found at " << font_path << std::endl;
     }
 
-    // 创建数据管理器实例
     DataManager dataManager;
-    // 从 JSON 文件加载项目设置（模块、约束等）
     if (!dataManager.loadProjectFromFile("wfc_project.json")) {
         std::cerr << "FATAL: Could not load initial project settings!" << std::endl;
-        return -1; // 加载失败则退出程序
+        return -1;
     }
 
-    // 创建 TileMap 和 View 对象
     TileMap tileMap; // 用于渲染地图
     sf::View view(sf::FloatRect(0, 0, (float)window.getSize().x, (float)window.getSize().y)); // 用于控制地图的视口（平移和缩放）
     sf::Clock deltaClock; // 用于计算 ImGui 更新所需的时间差
@@ -210,27 +218,26 @@ int main()
     bool require_commercial_clustering = false;
     // 用于控制房屋模块是否需要有道路邻居的布尔变量
     bool require_housing_accessibility = false;
+    // 用于控制最大生成次数
+    int maxTries = 6;
+	// 用于控制是否需要在生成时重置视图
+    bool needsViewResetOnGenerate = false;
 
 
-    // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
     {
         sf::Event event;
-        // 事件处理循环
+
         while (window.pollEvent(event))
         {
-            // 将事件传递给 ImGui 进行处理
             ImGui::SFML::ProcessEvent(window, event);
 
-            // 如果是关闭窗口事件，则关闭窗口
             if (event.type == sf::Event::Closed) window.close();
 
-            // 如果是鼠标滚轮事件，并且鼠标没有悬浮在 ImGui 窗口上
             if (event.type == sf::Event::MouseWheelScrolled && !ImGui::GetIO().WantCaptureMouse)
             {
-                // 根据滚轮方向缩放视图
-                if (event.mouseWheelScroll.delta > 0) view.zoom(0.9f); // 向上滚动，放大
-                else view.zoom(1.1f); // 向下滚动，缩小
+                if (event.mouseWheelScroll.delta > 0) view.zoom(0.9f); 
+                else view.zoom(1.1f); 
             }
         }
 
@@ -248,41 +255,56 @@ int main()
         // 更新 ImGui，传入自上一帧以来的时间
         ImGui::SFML::Update(window, deltaClock.restart());
 
+        const float panelWidth = 350.f; 
+        ImGui::SetNextWindowPos(ImVec2(window.getSize().x - panelWidth, 0.f));
+        ImGui::SetNextWindowSize(ImVec2(panelWidth, static_cast<float>(window.getSize().y)));
+        ImGui::SetNextWindowBgAlpha(0.9f);
+
         // --- 地块侦测逻辑 ---
         if (generator && !ImGui::GetIO().WantCaptureMouse)
         {
-            // 获取鼠标相对于窗口的像素坐标
             sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
+            const float panelWidth = 350.f;
 
-            // 将像素坐标转换为考虑了视图(view)平移和缩放的世界坐标
-            sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos, view);
-
-            // 将世界坐标转换为网格坐标
-            sf::Vector2i gridPos(
-                static_cast<int>(worldPos.x / dataManager.tileSize),
-                static_cast<int>(worldPos.y / dataManager.tileSize)
-            );
-
-            // 检查网格坐标是否在有效范围内
-            if (gridPos.x >= 0 && gridPos.x < dataManager.gridWidth &&
-                gridPos.y >= 0 && gridPos.y < dataManager.gridHeight)
+            if (generator && !ImGui::GetIO().WantCaptureMouse && pixelPos.x < (window.getSize().x - panelWidth)) 
             {
-                // 获取网格数据并找到对应的单元格
-                const auto& grid = generator->getGrid();
-                Cell* cell = grid[gridPos.y][gridPos.x];
+                sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos, view);
 
-                if (cell && cell->isCollapsed)
+                sf::Vector2i gridPos(
+                    static_cast<int>(worldPos.x / dataManager.tileSize),
+                    static_cast<int>(worldPos.y / dataManager.tileSize)
+                );
+
+                if (gridPos.x >= 0 && gridPos.x < dataManager.gridWidth &&
+                    gridPos.y >= 0 && gridPos.y < dataManager.gridHeight)
                 {
-                    ImGui::BeginTooltip();
-                    ImGui::Text("坐标 (Coords): (%d, %d)", gridPos.x, gridPos.y);
-                    ImGui::Text("模块ID (Module ID): %s", cell->chosenModuleId.c_str());
-                    ImGui::EndTooltip();
+                    const auto& grid = generator->getGrid();
+                    Cell* cell = grid[gridPos.y][gridPos.x];
+
+                    if (cell && cell->isCollapsed)
+                    {
+                        ImGui::SetNextWindowPos(ImVec2(pixelPos.x + 15, pixelPos.y + 15));
+
+                        ImGui::SetNextWindowSize(ImVec2(0, 0));
+                        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+
+                        ImGui::BeginTooltip();
+                        ImGui::Text("坐标 (Coords): (%d, %d)", gridPos.x, gridPos.y);
+                        ImGui::Text("模块ID (Module ID): %s", cell->chosenModuleId.c_str());
+                        ImGui::EndTooltip();
+
+                        ImGui::PopStyleVar();
+                    }
                 }
             }
         }
 
         // --- UI 面板构建 ---
-        ImGui::Begin("控制面板"); // 开始一个新的 ImGui 窗口
+        ImGui::Begin(
+            "控制面板",
+            nullptr, 
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse 
+        );
 
         // -- 网格设置 --
         if (ImGui::CollapsingHeader("网格设置 (Grid Settings)", ImGuiTreeNodeFlags_DefaultOpen))
@@ -353,6 +375,10 @@ int main()
 
         if (ImGui::CollapsingHeader("高级生成规则 (Advanced Rules)")) 
         {
+            ImGui::SetNextItemWidth(100); 
+            ImGui::InputInt("最大尝试次数 (Max Tries)", &maxTries);
+            ImGui::Separator(); 
+
             ImGui::Checkbox("禁止'C'模块在地图边缘 (Forbid 'C' on edge)", &forbid_C_on_edge);
 
             ImGui::Checkbox("公园必须临路 (Park must have Road neighbor)", &require_park_has_road_neighbor);
@@ -375,22 +401,30 @@ int main()
 
             if (!useRejectionSampling)
             {
-                generateAndUpdateMap(
+                if (generateAndUpdateMap(
                     generator,
                     dataManager,
                     tileMap,
                     statusMessage,
                     lastGeneratedCounts,
                     forbid_C_on_edge
-                );
+                ))
+                {
+                    needsViewResetOnGenerate = true;
+                }
             }
             else 
             {
-                int maxTries = 6;
                 bool success = false;
                 statusMessage = "生成中 (满足特殊规则)...";
                 for (int i = 0; i < maxTries; ++i)
                 {
+                    // 随机种子生成
+                    std::random_device rd;
+                    std::mt19937 rng(rd());
+                    std::uniform_int_distribution<int> uni(0, 100000);
+                    dataManager.seed = uni(rng);
+
                     generateAndUpdateMap(
                         generator,
                         dataManager,
@@ -418,6 +452,7 @@ int main()
                         if (passesAllChecks) {
                             statusMessage = "生成成功 (已满足所有特殊规则)!";
                             success = true;
+                            needsViewResetOnGenerate = true;
                             break; 
                         }
                     }
@@ -563,6 +598,13 @@ int main()
 
 
         ImGui::End(); 
+
+        if (needsViewResetOnGenerate)
+        {
+            fitViewToMap(view, window, dataManager);
+            needsViewResetOnGenerate = false; 
+        }
+
 
         // --- 渲染 ---
         window.clear(sf::Color(50, 50, 50)); 
