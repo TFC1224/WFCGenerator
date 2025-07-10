@@ -186,7 +186,7 @@ public:
      * @brief 启动WFC生成过程。
      * @return 如果成功生成完整网格则返回 true，否则返回 false。
      */
-    bool generate();
+    bool generate(bool useRelaxation = false);
 
     /**
      * @brief 获取生成的网格数据。

@@ -336,7 +336,7 @@ bool WFCGenerator::backtrack() {
  * 持续选择熵最低的单元格进行坍缩和传播，直到所有单元格都坍缩或无法找到解。
  * @return 如果成功生成完整网格，返回 true。
  */
-bool WFCGenerator::generate() {
+bool WFCGenerator::generate(bool useRelaxation) {
     int collapsedCount = 0;
     int totalCells = width * height;
 
@@ -356,12 +356,31 @@ bool WFCGenerator::generate() {
 
         // 如果选中的单元格已经没有可能模块，说明出现矛盾
         if (targetCell->possibleModules.empty()) {
-            std::cout << "Contradiction found at (" << targetCell->x << ", " << targetCell->y << "). Attempting to backtrack..." << std::endl;
-            if (!backtrack()) {
-                std::cout << "Backtrack failed. No solution found." << std::endl;
-                return false;
+            if (useRelaxation) {
+                std::cout << "Contradiction at (" << targetCell->x << ", " << targetCell->y
+                    << "). Relaxing constraint by placing fallback module 'E'." << std::endl;
+
+                targetCell->isCollapsed = true;
+                targetCell->chosenModuleId = "E";
+                targetCell->possibleModules = { "E" };
+                globalModuleCounts["E"]++; 
+
+                for (const auto& m : allModules) if (m.id == "E") targetCell->module = &m;
+
+                if (!propagate(targetCell->x, targetCell->y)) {
+
+                    if (!backtrack()) return false;
+                }
             }
-            continue;
+            else {
+                std::cout << "Contradiction found at (" << targetCell->x << ", " << targetCell->y << "). Attempting to backtrack..." << std::endl;
+                if (!backtrack()) {
+                    std::cout << "Backtrack failed. No solution found." << std::endl;
+                    return false;
+                }
+                continue;
+            }
+            
         }
 
         // 2. 坍缩单元格

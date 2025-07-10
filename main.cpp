@@ -20,7 +20,8 @@ bool generateAndUpdateMap(
     TileMap& tileMap,
     std::string& status,
     std::map<std::string, int>& counts,
-    bool forbidCEdge 
+    bool forbidCEdge,
+	bool enableConstraintRelaxation = false
 )
 {
     status = "生成中... (Generating...)";
@@ -44,7 +45,7 @@ bool generateAndUpdateMap(
         generator->setGlobalModuleLimit(limit_pair.first, limit_pair.second);
     }
 
-    if (generator->generate()) {
+    if (generator->generate(enableConstraintRelaxation)) {
         status = "生成成功！ (Success!)";
         std::cout << "Generation successful!" << std::endl;
         counts = generator->getGlobalModuleCounts(); 
@@ -222,7 +223,8 @@ int main()
     int maxTries = 6;
 	// 用于控制是否需要在生成时重置视图
     bool needsViewResetOnGenerate = false;
-
+	// 用于控制是否启用约束松弛
+    bool enableConstraintRelaxation = false;
 
     while (window.isOpen())
     {
@@ -387,6 +389,8 @@ int main()
 
             ImGui::Checkbox("住房必须临路 (Housing must be accessible)", &require_housing_accessibility);
 
+            ImGui::Checkbox("启用柔性约束 (Enable Constraint Relaxation)", &enableConstraintRelaxation);
+
             ImGui::Separator();
         }
 
@@ -407,7 +411,8 @@ int main()
                     tileMap,
                     statusMessage,
                     lastGeneratedCounts,
-                    forbid_C_on_edge
+                    forbid_C_on_edge,
+                    enableConstraintRelaxation
                 ))
                 {
                     needsViewResetOnGenerate = true;
@@ -431,7 +436,8 @@ int main()
                         tileMap,
                         statusMessage,
                         lastGeneratedCounts,
-                        forbid_C_on_edge
+                        forbid_C_on_edge,
+                        enableConstraintRelaxation
                     );
 
                     if (generator && generator->getGrid()[0][0]->isCollapsed)
