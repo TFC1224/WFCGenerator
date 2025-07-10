@@ -5,9 +5,9 @@ def merge_images(input_dir, output_path):
     # 配置参数
     img_size = 32  # 单张图片尺寸32×32
     target_width = 160  # 目标宽度
-    target_height = 224  # 目标高度
+    target_height = 32  # 目标高度
     per_row = target_width // img_size  # 每行放5张
-    total_images = 35  # 总图片数
+    total_images = 5  # 总图片数
     
     # 1. 获取输入图片列表（按文件名排序，确保顺序正确）
     # 假设图片文件名按顺序命名（如1.png, 2.png...35.png）
@@ -18,7 +18,7 @@ def merge_images(input_dir, output_path):
     
     # 检查图片数量是否正确
     if len(image_files) != total_images:
-        raise ValueError(f"{input_dir}需要35张图片，实际找到{len(image_files)}张")
+        raise ValueError(f"{input_dir}需要5张图片，实际找到{len(image_files)}张")
     
     # 2. 创建目标画布（RGBA支持透明背景）
     merged_img = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
@@ -45,8 +45,8 @@ def merge_images(input_dir, output_path):
 
 if __name__ == "__main__":
     # 配置输入文件夹和输出路径
-    input_directory = "D:/program/wfc/ModernWFC/ModernWFC/assets/新建文件夹/images"  # 存放35张32×32图片的文件夹
-    output_file = "D:/program/wfc/ModernWFC/ModernWFC/assets/新建文件夹/merge.png"  # 输出的160×224图片
+    input_directory = "D:/program/wfc/ModernWFC/assets/新建文件夹/images"  # 存放35张32×32图片的文件夹
+    output_file = "D:/program/wfc/ModernWFC/assets/新建文件夹/merge.png"  # 输出的160×224图片
     
     # 确保输入文件夹存在
     if not os.path.exists(input_directory):

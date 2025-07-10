@@ -80,6 +80,34 @@ void generateAndUpdateMap(
 }
 
 
+bool validateParkRule(const std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager) {
+    const auto& grid = generator->getGrid();
+    for (int y = 0; y < dataManager.gridHeight; ++y) {
+        for (int x = 0; x < dataManager.gridWidth; ++x) {
+            if (grid[y][x]->chosenModuleId == "P") { // 找到了一个公园
+                bool hasRoadNeighbor = false;
+                // 检查四个方向的邻居
+                int dx[] = { 0, 0, -1, 1 };
+                int dy[] = { -1, 1, 0, 0 };
+                for (int i = 0; i < 4; ++i) {
+                    int nx = x + dx[i];
+                    int ny = y + dy[i];
+                    if (nx >= 0 && nx < dataManager.gridWidth && ny >= 0 && ny < dataManager.gridHeight) {
+                        if (grid[ny][nx]->chosenModuleId == "R") {
+                            hasRoadNeighbor = true;
+                            break; // 只要有一个邻居是路就满足条件
+                        }
+                    }
+                }
+                if (!hasRoadNeighbor) {
+                    return false; // 验证失败：这个公园没有道路邻居
+                }
+            }
+        }
+    }
+    return true; // 所有公园都满足条件，验证通过
+}
+
 int main()
 {
     // 创建一个 1200x800 的窗口，标题为 "Modern WFC Generator"
@@ -123,6 +151,8 @@ int main()
     bool seedLocked = false;
 	// 用于控制是否禁止 'C' 模块出现在边缘的布尔变量
     bool forbid_C_on_edge = false;
+	// 用于控制公园模块是否需要有道路邻居的布尔变量
+    bool require_park_has_road_neighbor = false;
 
     // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
@@ -266,20 +296,47 @@ int main()
 
         ImGui::Checkbox("禁止'C'模块在地图边缘 (Forbid 'C' on edge)", &forbid_C_on_edge);
 
+        ImGui::Checkbox("公园必须临路 (Park must have Road neighbor)", &require_park_has_road_neighbor);
+
         ImGui::Separator(); 
 
         // -- 主操作按钮 --
         if (ImGui::Button("生成新地图 (Generate New Map)", ImVec2(160, 0)))
         {
-            // 点击按钮时，调用地图生成函数
-            generateAndUpdateMap(
-                generator,
-                dataManager,
-                tileMap,
-                statusMessage,
-                lastGeneratedCounts,
-                forbid_C_on_edge 
-            );
+            if (!require_park_has_road_neighbor)
+            {
+                generateAndUpdateMap(
+                    generator,
+                    dataManager,
+                    tileMap,
+                    statusMessage,
+                    lastGeneratedCounts,
+                    forbid_C_on_edge
+                );
+            }
+            else 
+            {
+                int maxTries = 6;
+                bool success = false;
+                for (int i = 0; i < maxTries; ++i) {
+                    generateAndUpdateMap(
+                        generator,
+                        dataManager,
+                        tileMap,
+                        statusMessage,
+                        lastGeneratedCounts,
+                        forbid_C_on_edge
+                    );
+
+                    if (generator && generator->getGrid()[0][0]->isCollapsed && validateParkRule(generator, dataManager)) {
+                        success = true;
+                        break;
+                    }
+                }
+                if (!success) {
+                    statusMessage = "生成失败次数过多无法满足特殊规则! (Failed to meet special rules!)";
+                }
+            }
         }
 
         ImGui::SameLine(); //同一行
@@ -437,3 +494,5 @@ int main()
 
     return 0; // 程序正常退出
 }
+
+
