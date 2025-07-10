@@ -79,7 +79,6 @@ void generateAndUpdateMap(
     }
 }
 
-
 bool validateParkRule(const std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager) {
     const auto& grid = generator->getGrid();
     for (int y = 0; y < dataManager.gridHeight; ++y) {
@@ -106,6 +105,60 @@ bool validateParkRule(const std::unique_ptr<WFCGenerator>& generator, DataManage
         }
     }
     return true; // 所有公园都满足条件，验证通过
+}
+
+bool validateCommercialClustering(const std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager) {
+    const auto& grid = generator->getGrid();
+    for (int y = 0; y < dataManager.gridHeight; ++y) {
+        for (int x = 0; x < dataManager.gridWidth; ++x) {
+            if (grid[y][x]->chosenModuleId == "C") { 
+                bool hasCommercialNeighbor = false;
+                int dx[] = { 0, 0, -1, 1 };
+                int dy[] = { -1, 1, 0, 0 };
+                for (int i = 0; i < 4; ++i) {
+                    int nx = x + dx[i];
+                    int ny = y + dy[i];
+                    if (nx >= 0 && nx < dataManager.gridWidth && ny >= 0 && ny < dataManager.gridHeight) {
+                        if (grid[ny][nx]->chosenModuleId == "C") {
+                            hasCommercialNeighbor = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasCommercialNeighbor) {
+                    return false; 
+                }
+            }
+        }
+    }
+    return true; 
+}
+
+bool validateHousingAccessibility(const std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager) {
+    const auto& grid = generator->getGrid();
+    for (int y = 0; y < dataManager.gridHeight; ++y) {
+        for (int x = 0; x < dataManager.gridWidth; ++x) {
+            if (grid[y][x]->chosenModuleId == "H") { 
+                bool hasRoadNeighbor = false;
+                int dx[] = { 0, 0, -1, 1 };
+                int dy[] = { -1, 1, 0, 0 };
+                for (int i = 0; i < 4; ++i) {
+                    int nx = x + dx[i];
+                    int ny = y + dy[i];
+                    if (nx >= 0 && nx < dataManager.gridWidth && ny >= 0 && ny < dataManager.gridHeight) {
+                        if (grid[ny][nx]->chosenModuleId == "R") {
+                            hasRoadNeighbor = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasRoadNeighbor) {
+                    return false; 
+                }
+            }
+        }
+    }
+    return true; 
 }
 
 int main()
@@ -153,6 +206,11 @@ int main()
     bool forbid_C_on_edge = false;
 	// 用于控制公园模块是否需要有道路邻居的布尔变量
     bool require_park_has_road_neighbor = false;
+	// 用于控制商业区模块是否需要聚集的布尔变量
+    bool require_commercial_clustering = false;
+    // 用于控制房屋模块是否需要有道路邻居的布尔变量
+    bool require_housing_accessibility = false;
+
 
     // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
@@ -190,34 +248,31 @@ int main()
         // 更新 ImGui，传入自上一帧以来的时间
         ImGui::SFML::Update(window, deltaClock.restart());
 
-        // --- 新增：地块侦测逻辑 ---
-        // 检查条件：1. generator必须存在 (已经成功生成过至少一次)
-        //          2. 鼠标没有悬浮在任何ImGui窗口上，以防干扰UI
+        // --- 地块侦测逻辑 ---
         if (generator && !ImGui::GetIO().WantCaptureMouse)
         {
-            // 1. 获取鼠标相对于窗口的像素坐标
+            // 获取鼠标相对于窗口的像素坐标
             sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
 
-            // 2. 将像素坐标转换为考虑了视图(view)平移和缩放的世界坐标
+            // 将像素坐标转换为考虑了视图(view)平移和缩放的世界坐标
             sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos, view);
 
-            // 3. 将世界坐标转换为网格坐标
+            // 将世界坐标转换为网格坐标
             sf::Vector2i gridPos(
                 static_cast<int>(worldPos.x / dataManager.tileSize),
                 static_cast<int>(worldPos.y / dataManager.tileSize)
             );
 
-            // 4. 检查网格坐标是否在有效范围内
+            // 检查网格坐标是否在有效范围内
             if (gridPos.x >= 0 && gridPos.x < dataManager.gridWidth &&
                 gridPos.y >= 0 && gridPos.y < dataManager.gridHeight)
             {
-                // 5. 获取网格数据并找到对应的单元格
+                // 获取网格数据并找到对应的单元格
                 const auto& grid = generator->getGrid();
                 Cell* cell = grid[gridPos.y][gridPos.x];
 
                 if (cell && cell->isCollapsed)
                 {
-                    // 6. 使用ImGui的Tooltip功能显示信息
                     ImGui::BeginTooltip();
                     ImGui::Text("坐标 (Coords): (%d, %d)", gridPos.x, gridPos.y);
                     ImGui::Text("模块ID (Module ID): %s", cell->chosenModuleId.c_str());
@@ -294,16 +349,31 @@ int main()
             }
         }
 
-        ImGui::Checkbox("禁止'C'模块在地图边缘 (Forbid 'C' on edge)", &forbid_C_on_edge);
+        ImGui::Separator();
 
-        ImGui::Checkbox("公园必须临路 (Park must have Road neighbor)", &require_park_has_road_neighbor);
+        if (ImGui::CollapsingHeader("高级生成规则 (Advanced Rules)")) 
+        {
+            ImGui::Checkbox("禁止'C'模块在地图边缘 (Forbid 'C' on edge)", &forbid_C_on_edge);
 
-        ImGui::Separator(); 
+            ImGui::Checkbox("公园必须临路 (Park must have Road neighbor)", &require_park_has_road_neighbor);
+
+            ImGui::Checkbox("商业区必须聚集 (Commercial must cluster)", &require_commercial_clustering);
+
+            ImGui::Checkbox("住房必须临路 (Housing must be accessible)", &require_housing_accessibility);
+
+            ImGui::Separator();
+        }
+
+        ImGui::Separator();
+
 
         // -- 主操作按钮 --
         if (ImGui::Button("生成新地图 (Generate New Map)", ImVec2(160, 0)))
         {
-            if (!require_park_has_road_neighbor)
+            // 检查规则是否启用
+            bool useRejectionSampling = require_park_has_road_neighbor || require_commercial_clustering || require_housing_accessibility;
+
+            if (!useRejectionSampling)
             {
                 generateAndUpdateMap(
                     generator,
@@ -318,7 +388,9 @@ int main()
             {
                 int maxTries = 6;
                 bool success = false;
-                for (int i = 0; i < maxTries; ++i) {
+                statusMessage = "生成中 (满足特殊规则)...";
+                for (int i = 0; i < maxTries; ++i)
+                {
                     generateAndUpdateMap(
                         generator,
                         dataManager,
@@ -328,9 +400,26 @@ int main()
                         forbid_C_on_edge
                     );
 
-                    if (generator && generator->getGrid()[0][0]->isCollapsed && validateParkRule(generator, dataManager)) {
-                        success = true;
-                        break;
+                    if (generator && generator->getGrid()[0][0]->isCollapsed)
+                    {
+                        // 依次检查所有被勾选的规则
+                        bool passesAllChecks = true;
+                        if (require_park_has_road_neighbor && !validateParkRule(generator, dataManager)) {
+                            passesAllChecks = false;
+                        }
+                        if (passesAllChecks && require_commercial_clustering && !validateCommercialClustering(generator, dataManager)) {
+                            passesAllChecks = false;
+                        }
+                        if (passesAllChecks && require_housing_accessibility && !validateHousingAccessibility(generator, dataManager)) {
+                            passesAllChecks = false;
+                        }
+
+                        // 如果所有启用的规则都通过了检查
+                        if (passesAllChecks) {
+                            statusMessage = "生成成功 (已满足所有特殊规则)!";
+                            success = true;
+                            break; 
+                        }
                     }
                 }
                 if (!success) {
@@ -339,7 +428,7 @@ int main()
             }
         }
 
-        ImGui::SameLine(); //同一行
+        ImGui::SameLine();
         if (ImGui::Button("重置视图 (Reset View)"))
         {
             // 将视图的尺寸设置为窗口大小
@@ -348,77 +437,76 @@ int main()
             view.setCenter(sf::Vector2f(window.getSize()) / 2.f);
         }
 
-
-        if (ImGui::Button("保存设置 (Save Settings)", ImVec2(160, 0)))
+        if (ImGui::CollapsingHeader("导出地图信息 (Export map information)"))
         {
-            // 点击按钮时，保存当前设置到文件
-            if (dataManager.saveProjectToFile("wfc_project.json")) {
-                statusMessage = "设置已保存！ (Settings Saved!)";
-            }
-            else {
-                statusMessage = "保存失败！ (Save Failed!)";
-            }
-        }
-        ImGui::SameLine(); //同一行
-        if (ImGui::Button("导出为图片 (Export as Image)", ImVec2(160, 0)))
-        {
-            // 计算地图的总像素尺寸
-            unsigned int mapPixelWidth = dataManager.gridWidth * dataManager.tileSize;
-            unsigned int mapPixelHeight = dataManager.gridHeight * dataManager.tileSize;
-
-            // 创建一个渲染纹理
-            sf::RenderTexture renderTexture;
-            if (renderTexture.create(mapPixelWidth, mapPixelHeight))
+            if (ImGui::Button("保存设置 (Save Settings)", ImVec2(160, 0)))
             {
-                renderTexture.clear(sf::Color(50, 50, 50)); // 设置背景色
-                renderTexture.draw(tileMap); // 将tileMap绘制到纹理上
-                renderTexture.display();
-
-                // 从纹理中获取图片并保存到文件
-                if (renderTexture.getTexture().copyToImage().saveToFile("./output/generated_map.png"))
-                {
-                    statusMessage = "地图已导出！(Map Exported!)";
+                // 点击按钮时，保存当前设置到文件
+                if (dataManager.saveProjectToFile("wfc_project.json")) {
+                    statusMessage = "设置已保存！ (Settings Saved!)";
                 }
-                else
-                {
-                    statusMessage = "导出失败！(Export Failed!)";
+                else {
+                    statusMessage = "保存失败！ (Save Failed!)";
                 }
             }
-        }
+            ImGui::SameLine();
+            if (ImGui::Button("导出为图片 (Export as Image)", ImVec2(160, 0)))
+            {
+                unsigned int mapPixelWidth = dataManager.gridWidth * dataManager.tileSize;
+                unsigned int mapPixelHeight = dataManager.gridHeight * dataManager.tileSize;
 
-        if (ImGui::Button("导出为JSON (Export as JSON)"))
-        {
-            if (!generator) { 
-                statusMessage = "当前无地图数据";
-            }
-            else {
-                nlohmann::json outputJson;
-                outputJson["width"] = dataManager.gridWidth;
-                outputJson["height"] = dataManager.gridHeight;
+                sf::RenderTexture renderTexture;
+                if (renderTexture.create(mapPixelWidth, mapPixelHeight))
+                {
+                    renderTexture.clear(sf::Color(50, 50, 50));
+                    renderTexture.draw(tileMap);
+                    renderTexture.display();
 
-                nlohmann::json gridData = nlohmann::json::array();
-                const auto& grid = generator->getGrid();
-
-                for (int y = 0; y < dataManager.gridHeight; ++y) {
-                    nlohmann::json row = nlohmann::json::array();
-                    for (int x = 0; x < dataManager.gridWidth; ++x) {
-                        row.push_back(grid[y][x]->chosenModuleId);
+                    if (renderTexture.getTexture().copyToImage().saveToFile("./output/generated_map.png"))
+                    {
+                        statusMessage = "地图已导出！(Map Exported!)";
                     }
-                    gridData.push_back(row);
+                    else
+                    {
+                        statusMessage = "导出失败！(Export Failed!)";
+                    }
                 }
-                outputJson["grid_data"] = gridData;
+            }
 
-                std::ofstream file("./output/generated_map.json");
-                file << outputJson.dump(4); 
-                file.close();
+            if (ImGui::Button("导出为JSON (Export as JSON)"))
+            {
+                if (!generator) {
+                    statusMessage = "当前无地图数据";
+                }
+                else {
+                    nlohmann::json outputJson;
+                    outputJson["width"] = dataManager.gridWidth;
+                    outputJson["height"] = dataManager.gridHeight;
 
-                statusMessage = "地图数据已导出至";
+                    nlohmann::json gridData = nlohmann::json::array();
+                    const auto& grid = generator->getGrid();
+
+                    for (int y = 0; y < dataManager.gridHeight; ++y) {
+                        nlohmann::json row = nlohmann::json::array();
+                        for (int x = 0; x < dataManager.gridWidth; ++x) {
+                            row.push_back(grid[y][x]->chosenModuleId);
+                        }
+                        gridData.push_back(row);
+                    }
+                    outputJson["grid_data"] = gridData;
+
+                    std::ofstream file("./output/generated_map.json");
+                    file << outputJson.dump(4);
+                    file.close();
+
+                    statusMessage = "地图数据已导出至";
+                }
             }
         }
+        ImGui::Separator();
 
         if (ImGui::CollapsingHeader("预设管理 (Preset Management)"))
         {
-            // 使用静态变量来持有文件名缓冲区
             static char filenameBuffer[128] = "wfc_project.json";
             ImGui::InputText("文件名 (Filename)", filenameBuffer, IM_ARRAYSIZE(filenameBuffer));
 
@@ -445,7 +533,6 @@ int main()
 
         ImGui::Separator();
 
-        // -- 生成统计 --
         if (ImGui::CollapsingHeader("生成统计 (Generation Stats)"))
         {
             if (lastGeneratedCounts.empty())
@@ -472,27 +559,23 @@ int main()
             }
         }
 
-        // -- 状态显示 --
         ImGui::Text("状态: %s", statusMessage.c_str());
 
 
-
-
-        ImGui::End(); // 结束 ImGui 窗口
+        ImGui::End(); 
 
         // --- 渲染 ---
-        window.clear(sf::Color(50, 50, 50)); // 用深灰色清空屏幕
-        window.setView(view); // 应用自定义视图（用于地图）
-        window.draw(tileMap); // 绘制瓦片地图
-        window.setView(window.getDefaultView()); // 恢复默认视图（用于UI）
-        ImGui::SFML::Render(window); // 渲染 ImGui 界面
-        window.display(); // 将后台缓冲区的内容显示到窗口上
+        window.clear(sf::Color(50, 50, 50)); 
+        window.setView(view);
+        window.draw(tileMap); 
+        window.setView(window.getDefaultView()); 
+        ImGui::SFML::Render(window); 
+        window.display(); 
     }
 
-    // 关闭并清理 ImGui-SFML
     ImGui::SFML::Shutdown();
 
-    return 0; // 程序正常退出
+    return 0; 
 }
 
 
