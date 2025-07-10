@@ -2,6 +2,7 @@
 #include <iostream>
 #include <filesystem>
 #include <random>
+#include <fstream> 
 #include <memory>
 #include <string> 
 
@@ -236,6 +237,14 @@ int main()
             }
         }
 
+        if (ImGui::CollapsingHeader("模块权重调整 (Module Weights)"))
+        {
+            for (auto& module : dataManager.modules) 
+            {
+                ImGui::InputDouble(module.id.c_str(), &module.weight, 0.1, 0.5, "%.2f");
+            }
+        }
+
         ImGui::Separator(); // 添加一条分割线
 
         // -- 主操作按钮 --
@@ -288,6 +297,63 @@ int main()
                 else
                 {
                     statusMessage = "导出失败！(Export Failed!)";
+                }
+            }
+        }
+
+        if (ImGui::Button("导出为JSON (Export as JSON)"))
+        {
+            if (!generator) { 
+                statusMessage = "当前无地图数据";
+            }
+            else {
+                nlohmann::json outputJson;
+                outputJson["width"] = dataManager.gridWidth;
+                outputJson["height"] = dataManager.gridHeight;
+
+                nlohmann::json gridData = nlohmann::json::array();
+                const auto& grid = generator->getGrid();
+
+                for (int y = 0; y < dataManager.gridHeight; ++y) {
+                    nlohmann::json row = nlohmann::json::array();
+                    for (int x = 0; x < dataManager.gridWidth; ++x) {
+                        row.push_back(grid[y][x]->chosenModuleId);
+                    }
+                    gridData.push_back(row);
+                }
+                outputJson["grid_data"] = gridData;
+
+                std::ofstream file("./output/generated_map.json");
+                file << outputJson.dump(4); 
+                file.close();
+
+                statusMessage = "地图数据已导出至";
+            }
+        }
+
+        if (ImGui::CollapsingHeader("预设管理 (Preset Management)"))
+        {
+            // 使用静态变量来持有文件名缓冲区
+            static char filenameBuffer[128] = "wfc_project.json";
+            ImGui::InputText("文件名 (Filename)", filenameBuffer, IM_ARRAYSIZE(filenameBuffer));
+
+            if (ImGui::Button("加载预设 (Load Preset)"))
+            {
+                if (dataManager.loadProjectFromFile(filenameBuffer)) {
+                    statusMessage = std::string("已从 ") + filenameBuffer + " 加载设置";
+                }
+                else {
+                    statusMessage = std::string("加载 ") + filenameBuffer + " 失败！";
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("另存为预设 (Save as Preset)"))
+            {
+                if (dataManager.saveProjectToFile(filenameBuffer)) {
+                    statusMessage = std::string("设置已保存至 ") + filenameBuffer;
+                }
+                else {
+                    statusMessage = std::string("保存至 ") + filenameBuffer + " 失败！";
                 }
             }
         }
