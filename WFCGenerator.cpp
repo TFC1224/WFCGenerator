@@ -417,3 +417,9 @@ bool WFCGenerator::generate() {
         return false;
     }
 }
+
+void WFCGenerator::removePossibility(int x, int y, const std::string& moduleId) {
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+        grid[y][x]->removePossibleModule(moduleId);
+    }
+}

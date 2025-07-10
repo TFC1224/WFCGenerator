@@ -207,6 +207,8 @@ public:
      */
     void setSeed(unsigned int seed);
 
+    void removePossibility(int x, int y, const std::string& moduleId);
+
 private:
     int width, height;                                  // 网格尺寸
     std::vector<std::vector<Cell*>> grid;               // 存储网格单元格的二维向量

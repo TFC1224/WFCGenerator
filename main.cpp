@@ -22,24 +22,43 @@
  * @param tileMap 瓦片地图对象，用于加载和显示生成的地图
  * @param status 用于反馈生成状态的字符串引用
  */
-void generateAndUpdateMap(std::unique_ptr<WFCGenerator>& generator, DataManager& dataManager, TileMap& tileMap, std::string& status, std::map<std::string, int>& counts)
+void generateAndUpdateMap(
+    std::unique_ptr<WFCGenerator>& generator,
+    DataManager& dataManager,
+    TileMap& tileMap,
+    std::string& status,
+    std::map<std::string, int>& counts,
+    bool forbidCEdge 
+)
 {
     // 更新状态信息，通知用户正在生成
     status = "生成中... (Generating...)";
     std::cout << "Generating new map..." << std::endl;
 
-    // 1. 创建 WFC 生成器实例，传入网格尺寸和模块定义
+    // 创建 WFC 生成器实例，传入网格尺寸和模块定义
     generator.reset(new WFCGenerator(dataManager.gridWidth, dataManager.gridHeight, dataManager.modules));
 
-    // 2. 设置随机种子
+    // 设置随机种子
     generator->setSeed(dataManager.seed);
 
-    // 3. 设置全局模块数量限制
+    // --- 应用边缘约束 ---
+    if (forbidCEdge) {
+        for (int y = 0; y < dataManager.gridHeight; ++y) {
+            for (int x = 0; x < dataManager.gridWidth; ++x) {
+                // 如果单元格在边界上
+                if (x == 0 || x == dataManager.gridWidth - 1 || y == 0 || y == dataManager.gridHeight - 1) {
+                    generator->removePossibility(x, y, "C"); // 移除'C'的可能性
+                }
+            }
+        }
+    }
+
+    // 设置全局模块数量限制
     for (const auto& limit_pair : dataManager.globalLimits) {
         generator->setGlobalModuleLimit(limit_pair.first, limit_pair.second);
     }
 
-    // 4. 运行 WFC 生成算法
+    // 运行 WFC 生成算法
     if (generator->generate()) {
         // 如果生成成功
         status = "生成成功！ (Success!)";
@@ -100,8 +119,10 @@ int main()
     std::map<std::string, int> lastGeneratedCounts; //存储上一次成功生成的模块数量
 	std::unique_ptr<WFCGenerator> generator;        // 用于存储 WFC 生成器实例
 
-    // 新增: 用于控制种子锁定的布尔变量
+    // 用于控制种子锁定的布尔变量
     bool seedLocked = false;
+	// 用于控制是否禁止 'C' 模块出现在边缘的布尔变量
+    bool forbid_C_on_edge = false;
 
     // 主循环，只要窗口打开就一直运行
     while (window.isOpen())
@@ -195,14 +216,12 @@ int main()
             ImGui::Checkbox("锁定 (Lock)", &seedLocked);
             ImGui::SameLine(); 
 
-            // 如果 seedLocked 为 true，则其后的所有控件都将变为灰色不可用
             ImGui::BeginDisabled(seedLocked);
 
             ImGui::SetNextItemWidth(100);
             ImGui::InputInt("##Seed", &dataManager.seed); // "##" 使标签不可见，但ID唯一
             ImGui::SameLine();
             if (ImGui::Button("随机化 (Randomize)")) {
-                // 使用 C++17 的随机数生成器来创建一个新的随机种子
                 std::random_device rd;
                 std::mt19937 rng(rd());
                 std::uniform_int_distribution<int> uni(0, 100000);
@@ -229,7 +248,7 @@ int main()
                     ImGui::TableSetColumnIndex(0);
                     ImGui::Text("%s", pair.first.c_str()); // 显示模块ID
                     ImGui::TableSetColumnIndex(1);
-                    std::string label = "##limit_" + pair.first; // 创建唯一的隐藏标签
+                    std::string label = "##limit_" + pair.first; 
                     ImGui::SetNextItemWidth(-1); // 让输入框填满整个单元格
                     ImGui::InputInt(label.c_str(), &pair.second); // 创建整数输入框
                 }
@@ -245,13 +264,22 @@ int main()
             }
         }
 
-        ImGui::Separator(); // 添加一条分割线
+        ImGui::Checkbox("禁止'C'模块在地图边缘 (Forbid 'C' on edge)", &forbid_C_on_edge);
+
+        ImGui::Separator(); 
 
         // -- 主操作按钮 --
         if (ImGui::Button("生成新地图 (Generate New Map)", ImVec2(160, 0)))
         {
             // 点击按钮时，调用地图生成函数
-            generateAndUpdateMap(generator, dataManager, tileMap, statusMessage, lastGeneratedCounts);
+            generateAndUpdateMap(
+                generator,
+                dataManager,
+                tileMap,
+                statusMessage,
+                lastGeneratedCounts,
+                forbid_C_on_edge 
+            );
         }
 
         ImGui::SameLine(); //同一行
