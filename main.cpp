@@ -208,6 +208,7 @@ int main()
     TileMap tileMap; // 用于渲染地图
     sf::View view(sf::FloatRect(0, 0, (float)window.getSize().x, (float)window.getSize().y)); // 用于控制地图的视口（平移和缩放）
     sf::Clock deltaClock; // 用于计算 ImGui 更新所需的时间差
+	sf::Clock animationClock; // 用于控制动画帧率
     std::string statusMessage = "准备就绪 (Ready)"; // 用于在 UI 中显示状态信息
     std::map<std::string, int> lastGeneratedCounts; //存储上一次成功生成的模块数量
 	std::unique_ptr<WFCGenerator> generator;        // 用于存储 WFC 生成器实例
@@ -290,6 +291,18 @@ int main()
 
                     if (cell && cell->isCollapsed)
                     {
+                        sf::Vector2f rectTopLeft_world(static_cast<float>(gridPos.x* dataManager.tileSize), static_cast<float>(gridPos.y* dataManager.tileSize));
+                        sf::Vector2f rectBottomRight_world(rectTopLeft_world.x + dataManager.tileSize, rectTopLeft_world.y + dataManager.tileSize);
+
+                        sf::Vector2i rectTopLeft_screen = window.mapCoordsToPixel(rectTopLeft_world, view);
+                        sf::Vector2i rectBottomRight_screen = window.mapCoordsToPixel(rectBottomRight_world, view);
+
+                        ImGui::GetBackgroundDrawList()->AddRectFilled(
+                            ImVec2(static_cast<float>(rectTopLeft_screen.x), static_cast<float>(rectTopLeft_screen.y)),
+                            ImVec2(static_cast<float>(rectBottomRight_screen.x), static_cast<float>(rectBottomRight_screen.y)),
+                            IM_COL32(255, 255, 0, 80) 
+                        );
+
                         ImGui::SetNextWindowPos(ImVec2(pixelPos.x + 15, pixelPos.y + 15));
 
                         ImGui::SetNextWindowSize(ImVec2(0, 0));
@@ -619,6 +632,17 @@ int main()
             fitViewToMap(view, window, dataManager);
             needsViewResetOnGenerate = false; 
         }
+
+		// --- 动画效果 ---
+        float sine = sin(animationClock.getElapsedTime().asSeconds() * 0.5f);
+        float scale = 1.0f + 0.005f * sine;
+
+        float mapWidthPx = static_cast<float>(dataManager.gridWidth * dataManager.tileSize);
+        float mapHeightPx = static_cast<float>(dataManager.gridHeight * dataManager.tileSize);
+        tileMap.setOrigin(mapWidthPx / 2.f, mapHeightPx / 2.f);
+
+        tileMap.setPosition(mapWidthPx / 2.f, mapHeightPx / 2.f);
+        tileMap.setScale(scale, scale);
 
 
         // --- 渲染 ---
