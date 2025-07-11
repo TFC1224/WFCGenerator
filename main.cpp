@@ -200,10 +200,19 @@ int main()
     }
 
     DataManager dataManager;
+
     if (!dataManager.loadProjectFromFile("wfc_project.json")) {
         std::cerr << "FATAL: Could not load initial project settings!" << std::endl;
         return -1;
     }
+
+    // --- 加载背景 ---
+    sf::Texture backgroundTexture;
+    if (!backgroundTexture.loadFromFile("assets/background.png")) {
+        std::cerr << "Error loading background texture!" << std::endl;
+    }
+    backgroundTexture.setRepeated(true);
+    sf::Sprite backgroundSprite(backgroundTexture);
 
     TileMap tileMap; // 用于渲染地图
     sf::View view(sf::FloatRect(0, 0, (float)window.getSize().x, (float)window.getSize().y)); // 用于控制地图的视口（平移和缩放）
@@ -494,10 +503,9 @@ int main()
         ImGui::SameLine();
         if (ImGui::Button("重置视图 (Reset View)"))
         {
-            // 将视图的尺寸设置为窗口大小
-            view.setSize(sf::Vector2f(window.getSize()));
-            // 将视图的中心设置回窗口中心
-            view.setCenter(sf::Vector2f(window.getSize()) / 2.f);
+            if (generator) { 
+                fitViewToMap(view, window, dataManager);
+            }
         }
 
         if (ImGui::CollapsingHeader("导出地图信息 (Export map information)"))
@@ -647,6 +655,15 @@ int main()
 
         // --- 渲染 ---
         window.clear(sf::Color(50, 50, 50)); 
+
+        /*      背景
+        backgroundSprite.setOrigin(backgroundTexture.getSize().x / 2.f, backgroundTexture.getSize().y / 2.f);
+        backgroundSprite.setPosition(view.getCenter() * 0.5f);
+        window.setView(window.getDefaultView());
+        window.draw(backgroundSprite);
+        */
+
+
         window.setView(view);
         window.draw(tileMap); 
         window.setView(window.getDefaultView()); 
