@@ -461,6 +461,8 @@ int main()
         // -- 主操作按钮 --
         if (ImGui::Button("生成新地图 (Generate New Map)", ImVec2(160, 0)))
         {
+
+            sf::Clock generationClock;
             // 检查规则是否启用
             bool useRejectionSampling = require_park_has_road_neighbor || require_commercial_clustering || require_housing_accessibility;
 
@@ -479,6 +481,9 @@ int main()
                 {
                     needsViewResetOnGenerate = true;
                 }
+
+                float elapsedTime = generationClock.getElapsedTime().asMilliseconds();
+                statusMessage = "生成成功！耗时 " + std::to_string((int)elapsedTime) + "ms";
             }
             else 
             {
@@ -486,7 +491,6 @@ int main()
                 statusMessage = "生成中 (满足特殊规则)...";
                 for (int i = 0; i < maxTries; ++i)
                 {
-                    // 随机种子生成
                     std::random_device rd;
                     std::mt19937 rng(rd());
                     std::uniform_int_distribution<int> uni(0, 100000);
@@ -519,7 +523,8 @@ int main()
 
                         // 如果所有启用的规则都通过了检查
                         if (passesAllChecks) {
-                            statusMessage = "生成成功 (已满足所有特殊规则)!";
+                            float elapsedTime = generationClock.getElapsedTime().asMilliseconds();
+                            statusMessage = "生成成功！耗时 " + std::to_string((int)elapsedTime) + "ms";
                             success = true;
                             needsViewResetOnGenerate = true;
                             break; 
@@ -527,7 +532,7 @@ int main()
                     }
                 }
                 if (!success) {
-                    statusMessage = "生成失败次数过多无法满足特殊规则! (Failed to meet special rules!)";
+                    statusMessage = "生成失败次数过多无法满足特殊规则! \n(Failed to meet special rules!)";
                 }
             }
         }
