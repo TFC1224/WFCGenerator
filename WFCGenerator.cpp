@@ -103,22 +103,18 @@ void WFCGenerator::initializeGrid() {
     }
 }
 
-/**
- * @brief 查找并返回熵最低的未坍缩单元格。
- * 如果有多个熵最低的单元格，则从中随机选择一个。
- * @return 指向熵最低的单元格的指针，如果所有单元格都已坍缩，则返回 nullptr。
- */
-Cell* WFCGenerator::getLowestEntropyCell() {
-    Cell* lowestEntropyCell = nullptr;
-    size_t minEntropy = -1; // 使用最大值初始化最小熵
-    std::vector<Cell*> candidates; // 存储所有熵最低的候选单元格
 
+Cell* WFCGenerator::getLowestEntropyCell() {
+    size_t minEntropy = -1;
+    std::vector<Cell*> candidates;
+
+    // 第一遍遍历：找到最低的熵值，并将所有拥有该熵值的单元格加入候选列表
     for (int i = 0; i < height; ++i) {
         for (int j = 0; j < width; ++j) {
             Cell* cell = grid[i][j];
             if (!cell->isCollapsed && !cell->possibleModules.empty()) {
                 size_t currentEntropy = cell->calculateEntropy();
-                if (lowestEntropyCell == nullptr || currentEntropy < minEntropy) {
+                if (candidates.empty() || currentEntropy < minEntropy) {
                     minEntropy = currentEntropy;
                     candidates.clear();
                     candidates.push_back(cell);
@@ -133,9 +129,37 @@ Cell* WFCGenerator::getLowestEntropyCell() {
     if (candidates.empty()) {
         return nullptr; // 没有可选择的单元格
     }
-    // 从候选者中随机选择一个
-    std::uniform_int_distribution<size_t> distrib(0, candidates.size() - 1);
-    return candidates[distrib(gen)];
+
+    // 如果只有一个候选者，或没有启用启发式择优，则随机选择一个
+    if (candidates.size() == 1 || !useHeuristicTieBreaking_) {
+        std::uniform_int_distribution<size_t> distrib(0, candidates.size() - 1);
+        return candidates[distrib(gen)];
+    }
+    else {
+        // 启发式择优逻辑：选择邻居总熵最低的候选者
+        Cell* bestCandidate = nullptr;
+        double minNeighborEntropySum = -1;
+
+        for (Cell* candidate : candidates) {
+            double currentNeighborEntropySum = 0;
+            int dx[] = { 0, 0, -1, 1 };
+            int dy[] = { -1, 1, 0, 0 };
+
+            for (int i = 0; i < 4; ++i) {
+                int nx = candidate->x + dx[i];
+                int ny = candidate->y + dy[i];
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    currentNeighborEntropySum += grid[ny][nx]->calculateEntropy();
+                }
+            }
+
+            if (bestCandidate == nullptr || currentNeighborEntropySum < minNeighborEntropySum) {
+                minNeighborEntropySum = currentNeighborEntropySum;
+                bestCandidate = candidate;
+            }
+        }
+        return bestCandidate;
+    }
 }
 
 /**
@@ -441,4 +465,8 @@ void WFCGenerator::removePossibility(int x, int y, const std::string& moduleId) 
     if (x >= 0 && x < width && y >= 0 && y < height) {
         grid[y][x]->removePossibleModule(moduleId);
     }
+}
+
+void WFCGenerator::setHeuristicTieBreaking(bool enabled) {
+    useHeuristicTieBreaking_ = enabled;
 }

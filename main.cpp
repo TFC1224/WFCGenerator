@@ -21,7 +21,8 @@ bool generateAndUpdateMap(
     std::string& status,
     std::map<std::string, int>& counts,
     bool forbidCEdge,
-	bool enableConstraintRelaxation = false
+    bool enableConstraintRelaxation = false,
+    bool useHeuristics = false
 )
 {
     status = "生成中... (Generating...)";
@@ -30,6 +31,8 @@ bool generateAndUpdateMap(
     generator.reset(new WFCGenerator(dataManager.gridWidth, dataManager.gridHeight, dataManager.modules));
 
     generator->setSeed(dataManager.seed);
+
+    generator->setHeuristicTieBreaking(useHeuristics);
 
     if (forbidCEdge) {
         for (int y = 0; y < dataManager.gridHeight; ++y) {
@@ -225,6 +228,8 @@ int main()
     bool needsViewResetOnGenerate = false;
 	// 用于控制是否启用约束松弛
     bool enableConstraintRelaxation = false;
+	// 用于控制是否使用启发式择优
+    bool useHeuristicTieBreaking = false;
 
     while (window.isOpen())
     {
@@ -381,7 +386,7 @@ int main()
             ImGui::InputInt("最大尝试次数 (Max Tries)", &maxTries);
             ImGui::Separator(); 
 
-            ImGui::Checkbox("禁止'C'模块在地图边缘 (Forbid 'C' on edge)", &forbid_C_on_edge);
+            ImGui::Checkbox("禁止商业区在地图边缘 (Forbid Commercia on edge)", &forbid_C_on_edge);
 
             ImGui::Checkbox("公园必须临路 (Park must have Road neighbor)", &require_park_has_road_neighbor);
 
@@ -390,6 +395,8 @@ int main()
             ImGui::Checkbox("住房必须临路 (Housing must be accessible)", &require_housing_accessibility);
 
             ImGui::Checkbox("启用柔性约束 (Enable Constraint Relaxation)", &enableConstraintRelaxation);
+
+            ImGui::Checkbox("启用启发式择优 (Enable Heuristic Tie-Breaking)", &useHeuristicTieBreaking);
 
             ImGui::Separator();
         }
@@ -412,7 +419,8 @@ int main()
                     statusMessage,
                     lastGeneratedCounts,
                     forbid_C_on_edge,
-                    enableConstraintRelaxation
+                    enableConstraintRelaxation,
+                    useHeuristicTieBreaking
                 ))
                 {
                     needsViewResetOnGenerate = true;
@@ -437,7 +445,8 @@ int main()
                         statusMessage,
                         lastGeneratedCounts,
                         forbid_C_on_edge,
-                        enableConstraintRelaxation
+                        enableConstraintRelaxation,
+                        useHeuristicTieBreaking
                     );
 
                     if (generator && generator->getGrid()[0][0]->isCollapsed)

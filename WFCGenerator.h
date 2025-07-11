@@ -161,53 +161,25 @@ struct StateSnapshot {
  */
 class WFCGenerator {
 public:
-    /**
-     * @brief WFCGenerator 构造函数。
-     * @param width 生成网格的宽度。
-     * @param height 生成网格的高度。
-     * @param modules 用于生成的所有模块的列表。
-     */
     WFCGenerator(int width, int height, const std::vector<Module>& modules);
 
-    /**
-     * @brief WFCGenerator 析构函数。
-     * 负责释放网格中动态分配的 Cell 对象。
-     */
     ~WFCGenerator();
 
-    /**
-     * @brief 设置特定模块在整个网格中的数量上限。
-     * @param moduleId 要限制的模块ID。
-     * @param limit 数量上限。
-     */
     void setGlobalModuleLimit(const std::string& moduleId, int limit);
 
-    /**
-     * @brief 启动WFC生成过程。
-     * @return 如果成功生成完整网格则返回 true，否则返回 false。
-     */
     bool generate(bool useRelaxation = false);
 
-    /**
-     * @brief 获取生成的网格数据。
-     * @return 一个常量引用，指向存储 Cell 指针的二维向量。
-     */
     const std::vector<std::vector<Cell*>>& getGrid() const;
 
     const std::map<std::string, int>& getGlobalModuleCounts() const;
 
-    /**
-     * @brief 在控制台打印生成的网格（用于调试）。
-     */
     void printGrid() const;
 
-    /**
-     * @brief 设置用于随机数生成的种子。
-     * @param seed 随机数种子。
-     */
     void setSeed(unsigned int seed);
 
     void removePossibility(int x, int y, const std::string& moduleId);
+
+    void setHeuristicTieBreaking(bool enabled); 
 
 private:
     int width, height;                                  // 网格尺寸
@@ -217,6 +189,7 @@ private:
     std::map<std::string, int> globalModuleLimits;      // 各模块的全局数量上限
     std::stack<StateSnapshot> stateStack;               // 用于回溯的状态快照栈
     std::mt19937 gen;                                   // 随机数生成器
+    bool useHeuristicTieBreaking_ = false;
 
     // 私有辅助函数
     void initializeGrid();                              // 初始化网格，创建所有 Cell 对象
