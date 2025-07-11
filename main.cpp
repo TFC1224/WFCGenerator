@@ -417,8 +417,40 @@ int main()
             ImGui::Checkbox("住房必须临路 (Housing must be accessible)", &require_housing_accessibility);
 
             ImGui::Checkbox("启用柔性约束 (Enable Constraint Relaxation)", &enableConstraintRelaxation);
+            ImGui::SameLine(); 
+            ImGui::TextDisabled("(?)"); 
+            if (ImGui::IsItemHovered()) 
+            {
+                ImGui::BeginTooltip();
+                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f); 
+                ImGui::TextUnformatted(
+                    "启用后，当WFC算法遇到矛盾时，\n"
+                    "它会尝试放置一个中立的“空地”模块来解决冲突，\n"
+                    "而不是立即回溯或失败。\n"
+                    "优点：极大提高生成成功率，结果更多样化。\n"
+                    "缺点：可能会在地图中产生非预期的“空地”。"
+                );
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
 
             ImGui::Checkbox("启用启发式择优 (Enable Heuristic Tie-Breaking)", &useHeuristicTieBreaking);
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+                ImGui::TextUnformatted(
+                    "启用后，当多个单元格拥有相同的最低熵时，\n"
+                    "它会优先选择那个邻居熵总和最低的单元格进行坍缩，\n"
+                    "而不是随意地向一个开阔区域进行“探索”。\n"
+                    "优点：可能的回溯和失败率降低。\n"
+                    "缺点：生成的多样性减少，产生“内向收敛”的风格。"
+                );
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
 
             ImGui::Separator();
         }
